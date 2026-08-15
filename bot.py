@@ -1,8 +1,22 @@
 import telebot
 import requests
 import os
+import threading
+import http.server
+import socketserver
 
-# Keys server se aayengi (Safe mode)
+# Yeh nakli server Render ko khush rakhne ke liye hai taaki wo error na de
+def keep_alive():
+    PORT = int(os.environ.get('PORT', 8080))
+    Handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"Fake server running on port {PORT}")
+        httpd.serve_forever()
+
+# Server ko background mein chalu kar diya
+threading.Thread(target=keep_alive, daemon=True).start()
+
+# --- Yahan se humara Asli Bot ka code shuru hota hai ---
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GEMINI_KEY = os.environ.get("GEMINI_KEY")
 
@@ -15,14 +29,14 @@ def ai_reply(message):
     bot.send_chat_action(message.chat.id, 'typing') 
     
     try:
-        # YAHAN HUMNE AI KO NAYA ATTITUDE DE DIYA HAI 😎
+        # AI ko strict kiya gaya hai taaki bhashan na de
         prompt_text = (
-            "You are a cool, casual, and friendly Telegram bot. "
-            "Act like a close friend. Give very short, quick, and casual replies in Hinglish or English. "
-            "NEVER write long paragraphs. Keep your reply to 1 or 2 lines maximum. "
-            "Do NOT output your internal thinking, reasoning, or options. "
-            "Only output the final, direct reply to the user.\n\n"
-            f"User says: {message.text}"
+            "Act as a cool, casual Indian friend speaking in Hinglish. "
+            "CRITICAL INSTRUCTION: You must output ONLY your final spoken reply. "
+            "NO internal thoughts, NO rules, NO options, NO bullet points, NO explanations. "
+            "Just say your short 1-2 line reply directly.\n\n"
+            f"User: {message.text}\n"
+            "Friend: "
         )
         
         url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_NAME}:generateContent?key={GEMINI_KEY}"
@@ -32,7 +46,8 @@ def ai_reply(message):
         
         if response.status_code == 200:
             jawab = response.json()['candidates'][0]['content']['parts'][0]['text']
-            bot.reply_to(message, jawab.strip())
+            jawab = jawab.replace("Friend:", "").replace("Option 1:", "").strip()
+            bot.reply_to(message, jawab)
         else:
             bot.reply_to(message, f"Google Error: {response.text}")
             
